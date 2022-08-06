@@ -16,38 +16,10 @@ def connect_to_db():
 @app.route('/check', methods=['POST'])
 def check():
     content_type = request.headers.get('Content-Type')
-    response = dict()
-
-    conn = connect_to_db()
-    cursor = conn.cursor()
-
-    if content_type == 'application/json':
-        json = request.json
-        
-        if all (key in json for key in ("table_name",)):
-            table_name = json["table_name"]
-            
-            cursor.execute("""SELECT * FROM information_schema.tables
-                WHERE table_schema = 'public'""")
-
-            exists = False
-            result = cursor.fetchall()
-            for step in result:
-                if table_name in step:
-                    exists = True
-            
-            response["response"] = exists
-            response["tables"] = result
-    
-    conn.close()
-
-    return jsonify(response)
-
-@app.route('/create', methods=['POST'])
-def create():
-    content_type = request.headers.get('Content-Type')
     response = {
-        "response": True
+        "exists": False,
+        "error": False,
+        "created": False
     }
 
     conn = connect_to_db()
@@ -55,16 +27,58 @@ def create():
 
     if content_type == 'application/json':
         json = request.json
+        
+        if all(key in json for key in ["md5_hash", "table_name"]):
+            md5_hash = json["md5_hash"]
+            table_name = json["table_name"]
+            
+            cursor.execute("""SELECT * FROM information_schema.tables""")
 
-        if all (key in json for key in ("sql_command",)):
+            result = cursor.fetchall()
+
+            for step in result:
+                current_table_name = step[2]
+                cursor.execute("""SELECT MD5('{}')""".format(current_table_name))
+
+                if cursor.fetchall()[0][0] == md5_hash:
+                    response["exists"] = True
+                    break
+
+        if not response["exists"]:
+            command = """CREATE TABLE {}()""".format(table_name)
             try:
-                cursor.execute(json["sql_command"])
+                cursor.execute(command)
                 conn.commit()
-            except psycopg2.errors.DuplicateTable:
-                response["error"] = "Table already exists"
-                response["response"] = False
+                response["created"] = True
             except Exception as error:
-                response["error"] = error
+                response["error"] = True
+    else:
+        response["error"] = True
+    
+    conn.close()
+
+    return jsonify(response)
+
+@app.route('/apply_sql_command', methods=['POST'])
+def apply_sql_command():
+    content_type = request.headers.get('Content-Type')
+    response = {
+        "response": True,
+        "error": False
+    }
+
+    conn = connect_to_db()
+    cursor = conn.cursor()
+
+    if content_type == 'application/json':
+        current_json = request.json
+
+        if all (key in current_json for key in ("sql_command",)):
+            try:
+                cursor.execute(current_json["sql_command"])
+                conn.commit()
+            except Exception as error:
+                response["error"] = True
                 response["response"] = False
 
     conn.close()
@@ -73,3 +87,4 @@ def create():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
