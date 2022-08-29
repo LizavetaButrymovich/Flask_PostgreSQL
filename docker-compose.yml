@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.3'
 
 services:
   web:
@@ -20,6 +20,3 @@ services:
       - POSTGRES_USER=confluense_communication
       - POSTGRES_PASSWORD=test_test
       - POSTGRES_DB=confluense
-
-volumes:
-  postgres_data:

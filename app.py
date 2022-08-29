@@ -44,14 +44,14 @@ def check():
                     response["exists"] = True
                     break
 
-        if not response["exists"]:
-            command = """CREATE TABLE {}()""".format(table_name)
-            try:
-                cursor.execute(command)
-                conn.commit()
-                response["created"] = True
-            except Exception as error:
-                response["error"] = True
+            if not response["exists"]:
+                command = """CREATE TABLE {}()""".format(table_name)
+                try:
+                    cursor.execute(command)
+                    conn.commit()
+                    response["created"] = True
+                except Exception as error:
+                    response["error"] = True
     else:
         response["error"] = True
     
